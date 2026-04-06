@@ -1,34 +1,76 @@
-// db.js
-// Exports a single shared connection pool.
-// Never call mysql.createConnection() per-request — always use this pool.
-
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const pool = mysql.createPool({
-  host:               process.env.DB_HOST,
-  port:               Number(process.env.DB_PORT) || 3306,
-  user:               process.env.DB_USER,
-  password:           process.env.DB_PASSWORD,
-  database:           process.env.DB_NAME,
-  waitForConnections: true,   // Queue requests instead of failing immediately
-  connectionLimit:    10,     // Max concurrent connections
-  queueLimit:         0,      // Unlimited queue (0 = no limit)
-  enableKeepAlive:    true,   // Prevent idle connection drops
-  keepAliveInitialDelay: 0,
+// Debug: Log what Railway provides (remove in production)
+console.log('Railway MySQL Variables:', {
+  MYSQLHOST: process.env.MYSQLHOST,
+  MYSQLPORT: process.env.MYSQLPORT,
+  MYSQLUSER: process.env.MYSQLUSER,
+  MYSQLDATABASE: process.env.MYSQLDATABASE,
+  hasPassword: !!process.env.MYSQLPASSWORD,
+  hasUrl: !!process.env.MYSQL_URL
 });
 
-// Verify the pool can connect on startup
-pool.getConnection()
-  .then(conn => {
-    console.log('[DB] Connection pool established successfully.');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('[DB] Failed to establish connection pool:', err.message);
-    process.exit(1); // Fatal: don't start the server without a DB
+// Create connection pool based on what Railway provides
+let pool;
+
+if (process.env.MYSQL_URL) {
+  // Option 1: Use Railway's MYSQL_URL (recommended)
+  console.log('[DB] Using MYSQL_URL connection');
+  pool = mysql.createPool({
+    uri: process.env.MYSQL_URL,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
   });
+} else if (process.env.MYSQLHOST) {
+  // Option 2: Use individual Railway variables
+  console.log('[DB] Using individual Railway MySQL variables');
+  pool = mysql.createPool({
+    host: process.env.MYSQLHOST,
+    port: parseInt(process.env.MYSQLPORT) || 3306,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  });
+} else if (process.env.DATABASE_URL) {
+  // Option 3: Standard DATABASE_URL
+  console.log('[DB] Using DATABASE_URL connection');
+  pool = mysql.createPool({
+    uri: process.env.DATABASE_URL,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  });
+} else {
+  // Option 4: Local development
+  console.log('[DB] Using local development configuration');
+  pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME || 'auth_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  });
+}
+
+// Test the connection
+try {
+  const connection = await pool.getConnection();
+  console.log('[DB] ✅ Connected successfully to MySQL');
+  connection.release();
+} catch (err) {
+  console.error('[DB] ❌ Connection failed:', err.message);
+  console.error('[DB] Full error:', err);
+  // Don't exit - let the app try to recover
+}
 
 export default pool;
