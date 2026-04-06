@@ -240,6 +240,60 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+// Update user profile
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const { email, username } = req.body;
+    const userId = req.userId;
+    
+    console.log(`Updating profile for user ${userId}:`, { email, username });
+
+    if (!db) await initDB();
+    
+    // Build dynamic update query based on what fields are provided
+    const updates = [];
+    const values = [];
+    
+    if (email !== undefined) {
+      updates.push('email = ?');
+      values.push(email);
+    }
+    
+    if (username !== undefined) {
+      updates.push('username = ?');
+      values.push(username);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    values.push(userId);
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    
+    console.log('Executing query:', query);
+    
+    const [result] = await db.query(query, values);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Get updated user data
+    const [users] = await db.query(
+      'SELECT id, username, email, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+    
+    res.json({ 
+      message: 'Profile updated successfully',
+      user: users[0]
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
 
 // Logout endpoint
 app.post('/api/auth/logout', (req, res) => {
