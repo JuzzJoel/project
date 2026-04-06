@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaFileAlt, FaPalette, FaSave, FaArrowLeft, FaSignOutAlt } from 'react-icons/fa';
-import api from '../api';
+import api from './api';
 
 export default function ProfileEdit() {
   const navigate = useNavigate();

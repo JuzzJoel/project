@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaUsers, FaArrowLeft, FaTrash, FaShield, FaSpinner } from 'react-icons/fa';
-import api from '../api';
+import { FaUsers, FaArrowLeft, FaTrash, FaLock, FaSpinner } from 'react-icons/fa';
+import api from './api';
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -148,7 +148,7 @@ export default function AdminUsers() {
                       title={user.is_admin ? 'Remove admin' : 'Make admin'}
                       style={{...styles.actionBtn, ...styles.adminBtn}}
                     >
-                      <FaShield />
+                      <FaLock />
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user.id, user.username)}

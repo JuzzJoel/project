@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaArrowLeft, FaCheckCircle } from 'react-icons/fa';
-import api from '../api';
+import api from './api';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();

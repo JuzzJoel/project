@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaUser, FaSignOutAlt, FaChartLine, FaUsers, FaActivity, FaGithub, FaEdit, FaShield } from 'react-icons/fa'
+import { FaUser, FaSignOutAlt, FaChartLine, FaUsers, FaHistory, FaGithub, FaEdit, FaLock } from 'react-icons/fa'
 import api from './api'
 
 export default function Dashboard() {
@@ -417,7 +417,7 @@ export default function Dashboard() {
               </button>
               {user?.is_admin && (
                 <button className="btn-secondary" onClick={() => navigate('/admin/users')}>
-                  <FaShield />
+                  <FaLock />
                   Admin Panel
                 </button>
               )}
@@ -454,7 +454,7 @@ export default function Dashboard() {
             </div>
             <div className="stat-card">
               <div className="stat-card-icon">
-                <FaActivity />
+                <FaHistory />
               </div>
               <h3>94%</h3>
               <p>Engagement Rate</p>
@@ -464,7 +464,7 @@ export default function Dashboard() {
           {/* Activity Section */}
           <div className="activity-section">
             <div className="section-title">
-              <FaActivity />
+              <FaHistory />
               Recent Activity
             </div>
             <div className="activity-feed">
