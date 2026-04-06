@@ -3,12 +3,14 @@
 
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL:         'http://localhost:5000/api',
-  withCredentials: true, // Critical: allows the browser to send/receive httpOnly cookies
-  timeout:         10_000,
-});
+// Use VITE_API_URL from Vercel environment, fallback to localhost for development
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+  timeout: 10000,
+});
 // ── Response Interceptor: "Log In AGAIN" Philosophy ───────────────────────
 // Any 401 from any endpoint automatically clears state and redirects to login.
 // This handles: expired JWTs, revoked tokens, and missing cookies — uniformly.
