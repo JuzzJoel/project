@@ -1,38 +1,51 @@
 // api.js
-// Central Axios instance with cookie support and automatic 401 → /login redirect.
-
 import axios from 'axios';
 
-// Use VITE_API_URL from Vercel environment, fallback to localhost for development
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Get API URL from environment
+const API_URL = import.meta.env.VITE_API_URL;
+
+// Debug logging (remove in production)
+if (!API_URL) {
+  console.error('[api] VITE_API_URL is not set! Check your environment variables.');
+}
+
+console.log('[api] Using API URL:', API_URL);
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL || 'http://localhost:5000/api',
   withCredentials: true,
-  timeout: 10000,
+  timeout: 30000,
 });
-// ── Response Interceptor: "Log In AGAIN" Philosophy ───────────────────────
-// Any 401 from any endpoint automatically clears state and redirects to login.
-// This handles: expired JWTs, revoked tokens, and missing cookies — uniformly.
-api.interceptors.response.use(
-  // Pass through successful responses untouched
-  (response) => response,
 
-  // Handle errors
+// Request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`[api] ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error('[api] Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    console.log(`[api] Response from ${response.config.url}:`, response.status);
+    return response;
+  },
   (error) => {
     const status = error.response?.status;
-
+    const url = error.config?.url;
+    
+    console.error(`[api] Error ${status} from ${url}:`, error.response?.data || error.message);
+    
     if (status === 401) {
       console.warn('[api] 401 Unauthorized — redirecting to /login');
-
-      // Optional: clear any client-side auth state here
-      // e.g., authStore.reset() if using Zustand/Redux
-
-      // Hard redirect — replaces history so user can't hit Back into a protected page
       window.location.replace('/login');
     }
-
-    // Re-throw so component-level .catch() handlers still work for non-401 errors
+    
     return Promise.reject(error);
   }
 );
