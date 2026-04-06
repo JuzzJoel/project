@@ -26,9 +26,8 @@ async function initDB() {
       queueLimit: 0
     });
     
-    // Test connection
     const connection = await db.getConnection();
-    console.log('✅ Database connected successfully');
+    console.log('✅ Database connected');
     connection.release();
     return true;
   } catch (error) {
@@ -38,25 +37,12 @@ async function initDB() {
 }
 
 // CORS configuration
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://project-auth-app-alpha.vercel.app',
-  /\.vercel\.app$/
-];
-
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some(allowed => 
-      allowed === origin || (allowed instanceof RegExp && allowed.test(origin))
-    )) {
-      callback(null, true);
-    } else {
-      console.log('Blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:5173',
+    'https://project-auth-app-alpha.vercel.app',
+    /\.vercel\.app$/
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
@@ -86,9 +72,7 @@ const authenticateToken = (req, res, next) => {
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
-    if (!db) {
-      await initDB();
-    }
+    if (!db) await initDB();
     const connection = await db.getConnection();
     connection.release();
     res.json({ status: 'ok', database: 'connected', timestamp: new Date() });
@@ -109,29 +93,24 @@ app.post('/api/auth/register', async (req, res) => {
 
     if (!db) await initDB();
 
-    // Check if user exists
     const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Insert user
     const [result] = await db.query(
       'INSERT INTO users (username, password, email) VALUES (?, ?, ?)',
       [username, hashedPassword, email || null]
     );
 
-    // Create JWT token
     const token = jwt.sign(
       { userId: result.insertId, username: username },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Set cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: true,
@@ -161,7 +140,6 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (!db) await initDB();
 
-    // Find user
     const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
     
     if (users.length === 0) {
@@ -169,21 +147,18 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const user = users[0];
-    
-    // Compare passwords
     const validPassword = await bcrypt.compare(password, user.password);
+    
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Create JWT token
     const token = jwt.sign(
       { userId: user.id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Set cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: true,
@@ -201,7 +176,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Get current user (me endpoint)
+// Get current user
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     if (!db) await initDB();
@@ -226,60 +201,32 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
     const { email, username } = req.body;
-    
-    if (!db) await initDB();
-    
-    await db.query(
-      'UPDATE users SET email = ?, username = ? WHERE id = ?',
-      [email, username, req.userId]
-    );
-    
-    res.json({ message: 'Profile updated successfully' });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-// Update user profile
-app.put('/api/auth/profile', authenticateToken, async (req, res) => {
-  try {
-    const { email, username } = req.body;
     const userId = req.userId;
     
     console.log(`Updating profile for user ${userId}:`, { email, username });
 
     if (!db) await initDB();
     
-    // Build dynamic update query based on what fields are provided
-    const updates = [];
-    const values = [];
-    
-    if (email !== undefined) {
-      updates.push('email = ?');
-      values.push(email);
+    // Update both fields if provided
+    if (email || username) {
+      const updates = [];
+      const values = [];
+      
+      if (email !== undefined) {
+        updates.push('email = ?');
+        values.push(email);
+      }
+      
+      if (username !== undefined) {
+        updates.push('username = ?');
+        values.push(username);
+      }
+      
+      values.push(userId);
+      await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
     }
     
-    if (username !== undefined) {
-      updates.push('username = ?');
-      values.push(username);
-    }
-    
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-    
-    values.push(userId);
-    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-    
-    console.log('Executing query:', query);
-    
-    const [result] = await db.query(query, values);
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Get updated user data
+    // Get updated user
     const [users] = await db.query(
       'SELECT id, username, email, created_at FROM users WHERE id = ?',
       [userId]
@@ -306,13 +253,12 @@ app.get('/', (req, res) => {
   res.json({ message: 'Auth API is running', status: 'online' });
 });
 
-// Initialize database and start server
+// Start server
 async function startServer() {
   await initDB();
-  
   app.listen(PORT, () => {
     console.log(`[server] Running on port ${PORT}`);
-    console.log(`[server] Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[server] JWT_SECRET is ${process.env.JWT_SECRET ? 'SET' : 'MISSING'}`);
   });
 }
 
