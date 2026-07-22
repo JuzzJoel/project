@@ -1,7 +1,7 @@
 # Simple Auth Project
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/JuzzJoel/joel-olajiire/master/public/covers/simple-auth-project.jpg" alt="Simple Auth Project Screenshot" width="800" />
+  <img src="cover.jpg" alt="Simple Auth Project Screenshot" width="800" />
 </p>
 
 # 🎉 Your Auth App is Ready!
